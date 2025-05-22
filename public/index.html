@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat App</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .container {
+        max-width: 720px;
+        width: 100%;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+      h2 {
+        text-align: center;
+        color: #333;
+        margin: 0;
+        padding: 20px;
+        background-color: #007bff;
+        color: white;
+      }
+      #messages {
+        border: none;
+        border-radius: 0;
+        padding: 10px;
+        height: 300px;
+        overflow-y: auto;
+        background-color: #f9f9f9;
+      }
+      #input {
+        width: 100%;
+        padding: 15px;
+        border: none;
+        border-top: 1px solid #ccc;
+        border-radius: 0;
+        box-shadow: none;
+        font-size: 16px;
+      }
+      #input:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+      }
+      .message {
+        margin: 5px 0;
+        padding: 10px;
+        border-radius: 5px;
+        max-width: 80%;
+        word-wrap: break-word;
+      }
+      .user-message {
+        background-color: #e1f5fe;
+        text-align: right;
+        margin-left: auto;
+      }
+      .incoming-message {
+        background-color: #f1f1f1;
+        text-align: left;
+        margin-right: auto;
+      }
+      .typing-indicator {
+        font-style: italic;
+        color: #666;
+        margin-top: 5px;
+        padding: 10px;
+        background-color: #e0e0e0;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Chat Application</h2>
+      <div id="messages"></div>
+      <input id="input" type="text" placeholder="Type a message..." />
+    </div>
+    <script>
+      const ws = new WebSocket(`ws://${location.host}`);
+      const input = document.getElementById("input");
+      const messages = document.getElementById("messages");
+
+      let typingTimeout;
+      let typingIndicator;
+
+      ws.onmessage = async (event) => {
+        let data;
+        if (event.data instanceof Blob) {
+          data = await event.data.text();
+        } else {
+          data = event.data;
+        }
+
+        if (data === "1") {
+          if (!typingIndicator) {
+            typingIndicator = document.createElement("div");
+            typingIndicator.textContent = "someone is typing...";
+            typingIndicator.className = "typing-indicator";
+            messages.appendChild(typingIndicator);
+          }
+
+          // Remove "typing..." after 2 seconds of no further typing signals
+          clearTimeout(typingTimeout);
+          typingTimeout = setTimeout(() => {
+            if (typingIndicator) {
+              typingIndicator.remove();
+              typingIndicator = null;
+            }
+          }, 1500);
+        } else {
+          if (typingIndicator) {
+            typingIndicator.remove();
+            typingIndicator = null;
+          }
+
+          const msg = document.createElement("div");
+          msg.textContent = "Guest: " + data;
+          msg.className = "message incoming-message";
+          messages.appendChild(msg);
+          messages.scrollTop = messages.scrollHeight;
+        }
+      };
+
+      // Debounce typing signals
+      let typingTimer;
+      input.addEventListener("input", () => {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {}, 300); // Wait for pause
+        ws.send("1");
+      });
+
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && input.value.trim()) {
+          ws.send(input.value.trim());
+
+          const msg = document.createElement("div");
+          msg.textContent = "You: " + input.value.trim();
+          msg.className = "message user-message";
+          messages.appendChild(msg);
+          messages.scrollTop = messages.scrollHeight;
+
+          input.value = "";
+        }
+      });
+    </script>
+  </body>
+</html>
